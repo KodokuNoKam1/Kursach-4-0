@@ -1,8 +1,11 @@
 package by.bsuir.kursach.commercialoffer.controller;
 
 import by.bsuir.kursach.commercialoffer.repository.OfferRepository;
+import by.bsuir.kursach.commercialoffer.service.PdfService;
+import by.bsuir.kursach.commercialoffer.model.Offer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,9 +17,11 @@ import java.util.List;
 public class OfferController {
 
     private final OfferRepository offerRepository;
+    private final PdfService pdfService;
 
-    public OfferController(OfferRepository offerRepository) {
+    public OfferController(OfferRepository offerRepository, PdfService pdfService) {
         this.offerRepository = offerRepository;
+        this.pdfService = pdfService;
     }
 
     @GetMapping
@@ -61,5 +66,19 @@ public class OfferController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/{id}/pdf")
+    @Operation(summary = "Export offer as PDF", description = "Generates a PDF for a specific commercial offer")
+    public ResponseEntity<byte[]> exportOfferAsPdf(@PathVariable Long id) {
+        return offerRepository.findById(id)
+                .map(offer -> {
+                    byte[] pdf = pdfService.generateOfferPdf(offer);
+                    return ResponseEntity.ok()
+                            .header("Content-Disposition", "attachment; filename=offer_" + id + ".pdf")
+                            .contentType(MediaType.APPLICATION_PDF)
+                            .body(pdf);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

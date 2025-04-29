@@ -8,6 +8,8 @@ import by.bsuir.kursach.commercialoffer.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class AuthService {
     private final UserRepository userRepository;
@@ -21,14 +23,19 @@ public class AuthService {
     }
 
     public JwtResponse register(RegisterRequest request) {
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+        Optional<User> existingUser = userRepository.findByUsername(request.getUsername());
+
+        if (existingUser.isPresent()) { // Теперь работаем с Optional
             throw new RuntimeException("Username already exists");
         }
+
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole() != null ? request.getRole() : "USER");
+
         userRepository.save(user);
+
         String token = jwtService.generateToken(user.getUsername(), user.getRole());
         return new JwtResponse(token);
     }
