@@ -28,14 +28,67 @@ public class OfferController {
     private final CsvImportService csvImportService;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final ExcelExportService excelExportService;
+    private final AuditLogService auditLogService;
 
-    public OfferController(OfferRepository offerRepository, PdfService pdfService, OfferHistoryService historyService, CsvImportService csvImportService, NotificationService notificationService, UserRepository userRepository) {
+    public OfferController(OfferRepository offerRepository, PdfService pdfService, OfferHistoryService historyService, CsvImportService csvImportService, NotificationService notificationService, UserRepository userRepository, ExcelExportService excelExportService, AuditLogService auditLogService) {
         this.offerRepository = offerRepository;
         this.pdfService = pdfService;
         this.historyService = historyService;
         this.csvImportService = csvImportService;
         this.notificationService = notificationService;
         this.userRepository = userRepository;
+        this.excelExportService = excelExportService;
+        this.auditLogService = auditLogService;
+    }
+
+    @PostMapping
+    @Operation(summary = "Create an offer", description = "Creates a new commercial offer")
+    public ResponseEntity<Offer> createOffer(@RequestBody Offer offer) {
+        Offer savedOffer = offerRepository.save(offer);
+        historyService.logAction(savedOffer, "CREATED", "Offer created with title: " + offer.getTitle());
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Long userId = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"))
+                .getId();
+        notificationService.createNotification(userId, "New offer created: " + offer.getTitle());
+        auditLogService.logAction("CREATE_OFFER", "Created offer: " + offer.getTitle());
+        return ResponseEntity.ok(savedOffer);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update an offer", description = "Updates an existing commercial offer")
+    public ResponseEntity<Offer> updateOffer(@PathVariable Long id, @RequestBody Offer updatedOffer) {
+        return offerRepository.findById(id)
+                .map(existingOffer -> {
+                    existingOffer.setTitle(updatedOffer.getTitle());
+                    existingOffer.setDescription(updatedOffer.getDescription());
+                    existingOffer.setAmount(updatedOffer.getAmount());
+                    existingOffer.setCurrency(updatedOffer.getCurrency());
+                    Offer savedOffer = offerRepository.save(existingOffer);
+                    historyService.logAction(savedOffer, "UPDATED", "Offer updated with title: " + updatedOffer.getTitle());
+                    String username = SecurityContextHolder.getContext().getAuthentication().getName();
+                    Long userId = userRepository.findByUsername(username)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found"))
+                            .getId();
+                    notificationService.createNotification(userId, "Offer updated: " + updatedOffer.getTitle());
+                    auditLogService.logAction("UPDATE_OFFER", "Updated offer: " + updatedOffer.getTitle());
+                    return ResponseEntity.ok(savedOffer);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete an offer", description = "Deletes a specific commercial offer")
+    public ResponseEntity<Void> deleteOffer(@PathVariable Long id) {
+        return offerRepository.findById(id)
+                .map(offer -> {
+                    offerRepository.deleteById(id);
+                    historyService.logAction(offer, "DELETED", "Offer deleted with title: " + offer.getTitle());
+                    auditLogService.logAction("DELETE_OFFER", "Deleted offer: " + offer.getTitle());
+                    return ResponseEntity.noContent().build();
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/search")
@@ -184,5 +237,52 @@ public class OfferController {
                     return ResponseEntity.ok(savedOffer);
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/export")
+    @Operation(summary = "Export offers to Excel", description = "Exports all offers to an Excel file")
+    public ResponseEntity<byte[]> exportOffersToExcel() throws Exception {
+        List<Offer> offers = offerRepository.findAll();
+        byte[] excel = excelExportService.exportOffersToExcel(offers);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=offers.xlsx")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(excel);
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search offers", description = "Searches offers by title, currency, amount range, or category")
+    public ResponseEntity<List<Offer>> searchOffers(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) Long currencyId,
+            @RequestParam(required = false) Double minAmount,
+            @RequestParam(required = false) Double maxAmount,
+            @RequestParam(required = false) Long categoryId) {
+        if (title != null) {
+            return ResponseEntity.ok(offerRepository.findByTitleContaining(title));
+        }
+        if (currencyId != null) {
+            return ResponseEntity.ok(offerRepository.findByCurrencyId(currencyId));
+        }
+        if (minAmount != null && maxAmount != null) {
+            return ResponseEntity.ok(offerRepository.findByAmountBetween(minAmount, maxAmount));
+        }
+        if (categoryId != null) {
+            return ResponseEntity.ok(offerRepository.findByCategoryId(categoryId));
+        }
+        return ResponseEntity.ok(offerRepository.findAll());
+    }
+
+    @GetMapping
+    @Operation(summary = "Get all offers", description = "Returns a paginated list of all commercial offers")
+    public ResponseEntity<Page<Offer>> getAllOffers(Pageable pageable) {
+        return ResponseEntity.ok(offerRepository.findAll(pageable));
+    }
+
+    @GetMapping
+    @Operation(summary = "Get all audit logs", description = "Returns a paginated list of all audit logs (ADMIN only)")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Page<AuditLog>> getAllAuditLogs(Pageable pageable) {
+        return ResponseEntity.ok(auditLogRepository.findAll(pageable));
     }
 }

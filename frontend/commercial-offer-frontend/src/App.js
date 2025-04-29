@@ -1,11 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button, Container } from '@mui/material';
-import Login from './components/Login';
-import Offers from './components/Offers';
-import Users from './components/Users';
-import Notifications from './components/Notifications';
-import Statistics from './components/Statistics';
+import AuditLogs from './components/AuditLogs';
+import Categories from './components/Categories';
 
 const App = () => {
     const handleLogout = () => {
@@ -32,6 +26,12 @@ const App = () => {
                     <Button color="inherit" component={Link} to="/statistics">
                         Statistics
                     </Button>
+                    <Button color="inherit" component={Link} to="/audit">
+                        Audit Logs
+                    </Button>
+                    <Button color="inherit" component={Link} to="/categories">
+                        Categories
+                    </Button>
                     <Button color="inherit" onClick={handleLogout}>
                         Logout
                     </Button>
@@ -44,11 +44,11 @@ const App = () => {
                     <Route path="/users" element={<Users />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/statistics" element={<Statistics />} />
+                    <Route path="/audit" element={<AuditLogs />} />
+                    <Route path="/categories" element={<Categories />} />
                     <Route path="/" element={<Login />} />
                 </Routes>
             </Container>
         </Router>
     );
 };
-
-export default App;

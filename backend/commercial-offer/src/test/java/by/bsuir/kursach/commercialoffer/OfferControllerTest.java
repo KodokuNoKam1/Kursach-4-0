@@ -252,4 +252,36 @@ public class OfferControllerTest {
                 .andExpect(jsonPath("$[0].count").value(1))
                 .andExpect(jsonPath("$[0].totalAmount").value(1000.0));
     }
+
+    @Test
+    public void testExportOffersToExcel() throws Exception {
+        Offer offer = new Offer();
+        offer.setTitle("Test Offer");
+        offer.setDescription("Description");
+        offer.setAmount(1000.0);
+        offer.setCurrency(currency);
+        mockMvc.perform(post("/api/offers")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(offer)));
+
+        mockMvc.perform(get("/api/offers/export"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=offers.xlsx"));
+    }
+
+    @Test
+    public void testGetOffersPaginated() throws Exception {
+        Offer offer = new Offer();
+        offer.setTitle("Test Offer");
+        offer.setDescription("Description");
+        offer.setAmount(1000.0);
+        offer.setCurrency(currency);
+        mockMvc.perform(post("/api/offers")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(offer)));
+
+        mockMvc.perform(get("/api/offers?page=0&size=10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("Test Offer"));
+    }
 }

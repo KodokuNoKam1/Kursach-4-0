@@ -23,4 +23,8 @@ public class Offer {
     @ManyToOne
     @JoinColumn(name = "currency_id", nullable = false)
     private Currency currency;
+
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
 }

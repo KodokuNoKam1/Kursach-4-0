@@ -32,3 +32,8 @@ export const searchOffers = (params) => api.get('/offers/search', { params });
 export const getOfferHistory = (id) => api.get(`/offers/${id}/history`);
 export const deleteOffer = (id) => api.delete(`/offers/${id}`);
 export const exportOfferPdf = (id) => api.get(`/offers/${id}/pdf`, { responseType: 'blob' });
+export const exportOffersToExcel = () => api.get('/offers/export', { responseType: 'blob' });
+export const getAuditLogs = (page = 0, size = 10) => api.get('/audit', { params: { page, size } });
+export const getCategories = () => api.get('/categories');
+export const createCategory = (category) => api.post('/categories', category);
+export const getOffersPaginated = (page = 0, size = 10) => api.get('/offers', { params: { page, size } });
