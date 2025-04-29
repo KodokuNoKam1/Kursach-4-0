@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -19,6 +20,9 @@ public class OfferControllerTest {
     @Test
     public void testGetOffers() throws Exception {
         mockMvc.perform(get("/api/offers"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0]").value("Offer 1"))
+                .andExpect(jsonPath("$[1]").value("Offer 2"))
+                .andExpect(jsonPath("$[2]").value("Offer 3"));
     }
 }

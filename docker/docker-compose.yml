@@ -1,20 +1,31 @@
-version: '3.8'
 services:
   backend:
     build:
-      context: ../backend
-      dockerfile: ../docker/Dockerfile.backend
+      context: D:/Kursach-4-0/backend/commercial-offer
+      dockerfile: D:/Kursach-4-0/docker/Dockerfile.backend
     ports:
       - "8080:8080"
     depends_on:
       - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/commercial_offer.db
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.SQLiteDialect
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_LOGGING_LEVEL_ORG_SPRINGFRAMEWORK=DEBUG
+    volumes:
+      - D:/Kursach-4-0/backend/commercial_offer.db:/commercial_offer.db
+    restart: on-failure
   frontend:
     build:
-      context: ../frontend/commercial-offer-frontend
-      dockerfile: ../docker/Dockerfile.frontend
+      context: D:/Kursach-4-0/frontend/commercial-offer-frontend
+      dockerfile: D:/Kursach-4-0/docker/Dockerfile.frontend
     ports:
       - "3000:3000"
+    restart: on-failure
   db:
-    image: nouchka/sqlite3:latest
+    image: alpine/sqlite
     volumes:
-      - ../backend/commercial_offer.db:/commercial_offer.db
+      - D:/Kursach-4-0/backend/commercial_offer.db:/commercial_offer.db
+    command: tail -f /dev/null
+    restart: on-failure
