@@ -8,14 +8,17 @@ services:
     depends_on:
       - db
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:sqlite:/commercial_offer.db
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/commercial_offer.db
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
       - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.SQLiteDialect
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_LOGGING_LEVEL_ORG_SPRINGFRAMEWORK=DEBUG
+      - SPRING_LOGGING_LEVEL_ROOT=DEBUG
     volumes:
-      - D:/Kursach-4-0/backend/commercial_offer.db:/commercial_offer.db
+      - D:/Kursach-4-0/backend/commercial_offer.db:/app/commercial_offer.db
     restart: on-failure
+    networks:
+      - app-network
   frontend:
     build:
       context: D:/Kursach-4-0/frontend/commercial-offer-frontend
@@ -23,9 +26,16 @@ services:
     ports:
       - "3000:3000"
     restart: on-failure
+    networks:
+      - app-network
   db:
-    image: alpine/sqlite
+    image: nouchka/sqlite3
     volumes:
-      - D:/Kursach-4-0/backend/commercial_offer.db:/commercial_offer.db
+      - D:/Kursach-4-0/backend/commercial_offer.db:/app/commercial_offer.db
     command: tail -f /dev/null
     restart: on-failure
+    networks:
+      - app-network
+networks:
+  app-network:
+    driver: bridge

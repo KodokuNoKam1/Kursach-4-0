@@ -20,3 +20,15 @@ export const login = (username, password) =>
 export const getOffers = () => api.get('/offers');
 export const createOffer = (offer) => api.post('/offers', offer);
 export const getCurrencies = () => api.get('/currencies');
+export const importOffers = (formData) => api.post('/offers/import', formData);
+export const getNotifications = () => api.get('/notifications');
+export const markNotificationAsRead = (id) => api.put(`/notifications/${id}/read`);
+export const getOfferStatistics = () => api.get('/offers/statistics');
+export const getUsers = () => api.get('/users');
+export const updateUserRole = (id, role) => api.put(`/users/${id}/role`, role, {
+    headers: { 'Content-Type': 'text/plain' },
+});
+export const searchOffers = (params) => api.get('/offers/search', { params });
+export const getOfferHistory = (id) => api.get(`/offers/${id}/history`);
+export const deleteOffer = (id) => api.delete(`/offers/${id}`);
+export const exportOfferPdf = (id) => api.get(`/offers/${id}/pdf`, { responseType: 'blob' });

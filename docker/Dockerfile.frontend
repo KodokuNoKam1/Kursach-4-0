@@ -1,6 +1,7 @@
 FROM node:20
 WORKDIR /app
-COPY . .
+COPY ../frontend/commercial-offer-frontend/package*.json ./
 RUN npm install
+COPY ../frontend/commercial-offer-frontend .
 EXPOSE 3000
 CMD ["npm", "start"]
