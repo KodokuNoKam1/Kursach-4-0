@@ -6,7 +6,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/commercial_offer.db
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
@@ -14,9 +15,17 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_LOGGING_LEVEL_ORG_SPRINGFRAMEWORK=DEBUG
       - SPRING_LOGGING_LEVEL_ROOT=DEBUG
+      - SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=10MB
+      - SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=10MB
     volumes:
       - D:/Kursach-4-0/backend/commercial_offer.db:/app/commercial_offer.db
+      - D:/Kursach-4-0/backend/backups:/app/backups
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - app-network
   frontend:
@@ -33,7 +42,11 @@ services:
     volumes:
       - D:/Kursach-4-0/backend/commercial_offer.db:/app/commercial_offer.db
     command: tail -f /dev/null
-    restart: on-failure
+    healthcheck:
+      test: ["CMD", "sqlite3", "/app/commercial_offer.db", "SELECT 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - app-network
 networks:

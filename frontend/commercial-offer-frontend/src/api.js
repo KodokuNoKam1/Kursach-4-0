@@ -37,3 +37,4 @@ export const getAuditLogs = (page = 0, size = 10) => api.get('/audit', { params:
 export const getCategories = () => api.get('/categories');
 export const createCategory = (category) => api.post('/categories', category);
 export const getOffersPaginated = (page = 0, size = 10) => api.get('/offers', { params: { page, size } });
+export const updateOffer = (id, offer) => api.put(`/offers/${id}`, offer);

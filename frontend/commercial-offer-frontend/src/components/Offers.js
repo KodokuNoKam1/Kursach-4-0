@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getOffersPaginated, createOffer, deleteOffer, getCurrencies, searchOffers, exportOfferPdf, importOffers, getCategories, createCategory } from '../api/api';
-import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, TableHead, TableRow, Pagination } from '@mui/material';
+import { getOffersPaginated, createOffer, updateOffer, deleteOffer, getCurrencies, searchOffers, exportOfferPdf, importOffers, getCategories, createCategory, exportOffersToExcel } from '../api/api';
+import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, TableHead, TableRow, Pagination, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { CircularProgress, Box } from '@mui/material';
 
 const Offers = () => {
     const [offers, setOffers] = useState([]);
@@ -8,7 +9,9 @@ const Offers = () => {
     const [categories, setCategories] = useState([]);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({
+        id: null,
         title: '',
         description: '',
         amount: 0,
@@ -17,32 +20,134 @@ const Offers = () => {
     });
     const [search, setSearch] = useState({ title: '', currencyId: '', minAmount: '', maxAmount: '', categoryId: '' });
     const [csvFile, setCsvFile] = useState(null);
+    const [openDialog, setOpenDialog] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
-            const offersResponse = await getOffersPaginated(page - 1);
-            const currenciesResponse = await getCurrencies();
-            const categoriesResponse = await getCategories();
-            setOffers(offersResponse.data.content);
-            setTotalPages(offersResponse.data.totalPages);
-            setCurrencies(currenciesResponse.data);
-            setCategories(categoriesResponse.data);
-            if (currenciesResponse.data.length > 0) {
-                setForm((prev) => ({ ...prev, currency: { id: currenciesResponse.data[0].id } }));
-            }
-            if (categoriesResponse.data.length > 0) {
-                setForm((prev) => ({ ...prev, category: { id: categoriesResponse.data[0].id } }));
+            setLoading(true);
+            try {
+                const offersResponse = await getOffersPaginated(page - 1);
+                const currenciesResponse = await getCurrencies();
+                const categoriesResponse = await getCategories();
+                setOffers(offersResponse.data.content);
+                setTotalPages(offersResponse.data.totalPages);
+                setCurrencies(currenciesResponse.data);
+                setCategories(categoriesResponse.data);
+                if (currenciesResponse.data.length > 0) {
+                    setForm((prev) => ({ ...prev, currency: { id: currenciesResponse.data[0].id } }));
+                }
+                if (categoriesResponse.data.length > 0) {
+                    setForm((prev) => ({ ...prev, category: { id: categoriesResponse.data[0].id } }));
+                }
+            } finally {
+                setLoading(false);
             }
         };
         fetchData();
     }, [page]);
 
+    const handleOpenDialog = (offer = null) => {
+        if (offer) {
+            setForm({
+                id: offer.id,
+                title: offer.title,
+                description: offer.description || '',
+                amount: offer.amount,
+                currency: { id: offer.currency.id },
+                category: { id: offer.category ? offer.category.id : '' },
+            });
+        } else {
+            setForm({
+                id: null,
+                title: '',
+                description: '',
+                amount: 0,
+                currency: { id: currencies[0]?.id || '' },
+                category: { id: categories[0]?.id || '' },
+            });
+        }
+        setOpenDialog(true);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        await createOffer(form);
+        setLoading(true);
+        try {
+            if (form.id) {
+                await updateOffer(form.id, form);
+            } else {
+                await createOffer(form);
+            }
+            const response = await getOffersPaginated(page - 1);
+            setOffers(response.data.content);
+            handleCloseDialog();
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const params = {};
+            if (search.title) params.title = search.title;
+            if (search.currencyId) params.currencyId = search.currencyId;
+            if (search.minAmount) params.minAmount = search.minAmount;
+            if (search.maxAmount) params.maxAmount = search.maxAmount;
+            if (search.categoryId) params.categoryId = search.categoryId;
+            const response = await searchOffers(params);
+            setOffers(response.data);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleImport = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', csvFile);
+            await importOffers(formData);
+            const response = await getOffersPaginated(page - 1);
+            setOffers(response.data.content);
+            setCsvFile(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleExportExcel = async () => {
+        setLoading(true);
+        try {
+            const response = await exportOffersToExcel();
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'offers.xlsx');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCloseDialog = () => {
+        setOpenDialog(false);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (form.id) {
+            await updateOffer(form.id, form);
+        } else {
+            await createOffer(form);
+        }
         const response = await getOffersPaginated(page - 1);
         setOffers(response.data.content);
-        setForm({ title: '', description: '', amount: 0, currency: { id: form.currency.id }, category: { id: form.category.id } });
+        handleCloseDialog();
     };
 
     const handleSearch = async (e) => {
@@ -58,9 +163,11 @@ const Offers = () => {
     };
 
     const handleDelete = async (id) => {
-        await deleteOffer(id);
-        const response = await getOffersPaginated(page - 1);
-        setOffers(response.data.content);
+        if (window.confirm('Are you sure you want to delete this offer?')) {
+            await deleteOffer(id);
+            const response = await getOffersPaginated(page - 1);
+            setOffers(response.data.content);
+        }
     };
 
     const handleExportPdf = async (id) => {
@@ -69,6 +176,17 @@ const Offers = () => {
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `offer_${id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportExcel = async () => {
+        const response = await exportOffersToExcel();
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'offers.xlsx');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -88,77 +206,25 @@ const Offers = () => {
         setPage(value);
     };
 
-    const handleExportExcel = async () => {
-        const response = await exportOffersToExcel();
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'offers.xlsx');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     return (
+        <Box sx={{ padding: { xs: 1, sm: 2, md: 3 } }}>
+        {loading && (
+            <Box display="flex" justifyContent="center" my={2}>
+                <CircularProgress />
+            </Box>
+        )}
+        <div>
+            {/* ... остальной код ... */}
+        </div>
+    </Box>);
         <div>
             <h2>Commercial Offers</h2>
-            <h3>Create Offer</h3>
-            <form onSubmit={handleSubmit}>
-                <TextField
-                    label="Title"
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    fullWidth
-                    margin="normal"
-                />
-                <TextField
-                    label="Description"
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    fullWidth
-                    margin="normal"
-                />
-                <TextField
-                    label="Amount"
-                    type="number"
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) })}
-                    fullWidth
-                    margin="normal"
-                />
-                <FormControl fullWidth margin="normal">
-                    <InputLabel>Currency</InputLabel>
-                    <Select
-                        value={form.currency.id}
-                        onChange={(e) => setForm({ ...form, currency: { id: parseInt(e.target.value) } })}
-                    >
-                        {currencies.map((currency) => (
-                            <MenuItem key={currency.id} value={currency.id}>
-                                {currency.name} ({currency.code})
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-                <FormControl fullWidth margin="normal">
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                        value={form.category.id}
-                        onChange={(e) => setForm({ ...form, category: { id: parseInt(e.target.value) } })}
-                    >
-                        {categories.map((category) => (
-                            <MenuItem key={category.id} value={category.id}>
-                                {category.name}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-                <Button type="submit" variant="contained" color="primary">
-                    Create Offer
-                </Button>
-                <Button onClick={handleExportExcel} variant="contained" color="primary" style={{ margin: '10px 0' }}>
-    Export to Excel
-</Button>
-            </form>
+            <Button onClick={() => handleOpenDialog()} variant="contained" color="primary" style={{ margin: '10px 0' }}>
+                Create Offer
+            </Button>
+            <Button onClick={handleExportExcel} variant="contained" color="primary" style={{ margin: '10px' }}>
+                Export to Excel
+            </Button>
             <h3>Import Offers from CSV</h3>
             <form onSubmit={handleImport}>
                 <input
@@ -245,6 +311,9 @@ const Offers = () => {
                             <TableCell>{offer.currency.code}</TableCell>
                             <TableCell>{offer.category ? offer.category.name : 'None'}</TableCell>
                             <TableCell>
+                                <Button onClick={() => handleOpenDialog(offer)} color="primary">
+                                    Edit
+                                </Button>
                                 <Button onClick={() => handleDelete(offer.id)} color="secondary">
                                     Delete
                                 </Button>
@@ -257,6 +326,67 @@ const Offers = () => {
                 </TableBody>
             </Table>
             <Pagination count={totalPages} page={page} onChange={handlePageChange} />
+            <Dialog open={openDialog} onClose={handleCloseDialog}>
+                <DialogTitle>{form.id ? 'Edit Offer' : 'Create Offer'}</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        label="Title"
+                        value={form.title}
+                        onChange={(e) => setForm({ ...form, title: e.target.value })}
+                        fullWidth
+                        margin="normal"
+                    />
+                    <TextField
+                        label="Description"
+                        value={form.description}
+                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        fullWidth
+                        margin="normal"
+                    />
+                    <TextField
+                        label="Amount"
+                        type="number"
+                        value={form.amount}
+                        onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) })}
+                        fullWidth
+                        margin="normal"
+                    />
+                    <FormControl fullWidth margin="normal">
+                        <InputLabel>Currency</InputLabel>
+                        <Select
+                            value={form.currency.id}
+                            onChange={(e) => setForm({ ...form, currency: { id: parseInt(e.target.value) } })}
+                        >
+                            {currencies.map((currency) => (
+                                <MenuItem key={currency.id} value={currency.id}>
+                                    {currency.name} ({currency.code})
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControl fullWidth margin="normal">
+                        <InputLabel>Category</InputLabel>
+                        <Select
+                            value={form.category.id}
+                            onChange={(e) => setForm({ ...form, category: { id: parseInt(e.target.value) } })}
+                        >
+                            {categories.map((category) => (
+                                <MenuItem key={category.id} value={category.id}>
+                                    {category.name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDialog} color="secondary">
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSubmit} color="primary">
+                        Save
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </div>
     );
 };
